@@ -1,0 +1,29 @@
+{
+  "name": "sjtu2calendar",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "dependencies": {
+    "google-auth-library": "^0.10.0",
+    "moment": "^2.17.1",
+    "express": "^4.15.0",
+    "googleapis": "^17.1.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/footoredo/sjtu2calendar.git"
+  },
+  "keywords": [
+    "sjtu"
+  ],
+  "author": "footoredo",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/footoredo/sjtu2calendar/issues"
+  },
+  "homepage": "https://github.com/footoredo/sjtu2calendar#readme"
+}
