@@ -1,10 +1,12 @@
 var fs = require('fs');
 var readline = require('readline');
-var google = require('googleapis');
-var googleAuth = require('google-auth-library');
+var querystring = require('querystring');
+var oauth2 = require('simple-oauth2');
 
-var SCOPES = ['https://www.googleapis.com/auth/calendar'];
-google.options({ proxy: "http://localhost:8118" });
+var BASEURL = "https://jaccount.sjtu.edu.cn";
+var AUTHURL = BASEURL + "/oauth2/authorize";
+var TOKENURL = BASEURL + "/oauth2/token";
+var LOGOUTURL = BASEURL + "/oauth2/logout";
 
 function getAuthUrl(credentialsFile, callback) {
 	var credentials;
@@ -15,17 +17,30 @@ function getAuthUrl(credentialsFile, callback) {
 		// Authorize a client with the loaded credentials, then call the
 		// Google Calendar API.
 
-		credentials = JSON.parse(content);
-		var clientSecret = credentials.web.client_secret;
-		var clientId = credentials.web.client_id;
-		var redirectUrl = credentials.web.redirect_uris[0];
-		var auth = new googleAuth();
-		var oauth2Client = new auth.OAuth2(clientId, clientSecret, redirectUrl);
+		raw_credentials = JSON.parse(content);
+		var clientSecret = raw_credentials.client_secret;
+		var clientId = raw_credentials.client_id;
+		var redirectUrl = raw_credentials.redirect_uris[0];
+        var scope = raw_credentials.scope;
 
-		var authUrl = oauth2Client.generateAuthUrl({
-			access_type: 'offline',
-			scope: SCOPES
-		});
+        var credentials = {
+            client: {
+                id: clientId,
+                secret: clientSecret
+            },
+            auth: {
+                tokenHost: BASEURL,
+                tokenPath: "/oauth2/token",
+                revokePath: "/oauth2/logout",
+                authorizePath: "/oauth2/authorize"
+            }
+        };
+
+        var oauth2Client = oauth2.create(credentials);
+        var authUrl = oauth2Client.authorizationCode.authorizeURL({
+            redirect_uri: redirectUrl,
+            scope: scope
+        });
 
 		callback(null, oauth2Client, authUrl);
 	});
