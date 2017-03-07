@@ -1,0 +1,16 @@
+<html>
+    <head>
+        <script src="/socket.io/socket.io.js"></script>
+        <script>
+var socket = io.connect();
+socket.on('news', function (data) {
+    var msg = document.createElement('p');
+    msg.textContent = data;
+    document.body.appendChild(msg);
+});
+        </script>
+    </head>
+    <body>
+        <p> Start process... </p>
+    </body>
+</html>

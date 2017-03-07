@@ -1,10 +1,16 @@
 var fs = require('fs');
+var async = require('async');
 var readline = require('readline');
-var google = require('googleapis');
 var googleAuth = require('google-auth-library');
+var googleBatch = require('google-batch');
+var google = googleBatch.require('googleapis');
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 var SCOPES = ['https://www.googleapis.com/auth/calendar'];
-google.options({ proxy: "http://localhost:8118" });
+//google.options({ proxy: "http://localhost:8118" });
 
 function getAuthUrl(credentialsFile, callback) {
 	var credentials;
@@ -19,11 +25,11 @@ function getAuthUrl(credentialsFile, callback) {
 		var clientSecret = credentials.web.client_secret;
 		var clientId = credentials.web.client_id;
 		var redirectUrl = credentials.web.redirect_uris[0];
-		var auth = new googleAuth();
-		var oauth2Client = new auth.OAuth2(clientId, clientSecret, redirectUrl);
+		//var auth = new googleAuth();
+		var oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUrl);
 
 		var authUrl = oauth2Client.generateAuthUrl({
-			access_type: 'offline',
+			access_type: 'online',
 			scope: SCOPES
 		});
 
@@ -38,7 +44,7 @@ function getAccessToken(oauth2Client, code, callback) {
 			oauth2Client.setCredentials(tokens);
 			var calendar = google.calendar({
 				version: 'v3',
-				auth: oauth2Client
+				//auth: oauth2Client
 			});
 
 			callback(null, calendar);
@@ -49,29 +55,83 @@ function getAccessToken(oauth2Client, code, callback) {
 	});
 }
 
-function getNewToken(oauth2Client, callback) {
-  var authUrl = oauth2Client.generateAuthUrl({
-    access_type: 'offline',
-    scope: SCOPES
-  });
-  console.log('Authorize this app by visiting this url: ', authUrl);
-  var rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
-  rl.question('Enter the code from that page here: ', function(code) {
-    rl.close();
-    oauth2Client.getToken(code, function(err, token) {
-      if (err) {
-        console.log('Error while trying to retrieve access token', err);
-        return;
-      }
-      oauth2Client.credentials = token;
-      storeToken(token);
-      callback(oauth2Client);
+function createCalendar(oauth2Client, calendar, calendarName, callback) {
+    //callback(null, "ifpna9r8697c2d9jmupbr347qc@group.calendar.google.com");
+    //return;
+    calendar.calendars.insert({
+        auth: oauth2Client,
+        resource: {
+            summary: calendarName
+        }
+    }, function(err, res) {
+        if (err) {
+            callback(err);
+        }
+        else {
+            callback(null, res.id);
+        }
     });
-  });
+}
+
+function addEvent(oauth2Client, calendar, calendarId, evts, callback, update) {
+    //console.log(calendar._options.auth);
+    //callback(null);
+    //return;
+    send(evts);
+    function send(_evts) {
+        var evts;
+        if (_evts.length > 50) {
+            evts = _evts.slice(0, 50);
+        }
+        else {
+            evts = _evts;
+        }
+        //console.log(evts.length);
+        var batch = new googleBatch();
+        batch.setAuth(oauth2Client);
+        async.forEach(evts, function(evt, callback) {
+            batch.add(
+                    calendar.events.insert({
+                        googleBatch: true,
+                        calendarId: calendarId,
+                        resource: evt
+                    }));
+            callback();
+        }, function (err) {
+            if (err) {
+                callback(err);
+            }
+            else {
+                //callback(null);
+                //return;
+                //batch.clear();
+                batch.exec(function (err, res, errDetails) {
+                    if (err) {
+                        //console.log(err);
+                        callback(err.message);
+                    }
+                    else {
+                        //callback(null);
+                        //return;
+                        //console.log(res);
+                        update(evts.length);
+                        //console.log("xxx " + evts.length + " yyy " + _evts.length);
+                        if (_evts.length > 50)
+                            sleep(200).then(() => {
+                                send(_evts.slice(50, _evts.length));
+                            });
+                        else {
+                            callback(null);
+                        }
+                    }
+                    batch.clear();
+                })
+            }
+        });
+    }
 }
 
 exports.getAuthUrl = getAuthUrl;
 exports.getAccessToken = getAccessToken;
+exports.createCalendar = createCalendar;
+exports.addEvent = addEvent;

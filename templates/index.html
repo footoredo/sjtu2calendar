@@ -1,0 +1,15 @@
+<html>
+    <head>
+        <title> SJTU Schedule to Google Calendar </title>
+    </head>
+    <body>
+        <form action='/process' method='post'>
+            Calendar Name:
+            <input type='text' name='calendarName'><br>
+            Import:<br>
+            <input type='checkbox' name='isLesson'>Lesson<br>
+            <input type='checkbox' disabled='true' name='isExame'>Exam<br>
+            <input type='submit'>
+        </form>
+    </body>
+</html>
