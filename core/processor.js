@@ -23,8 +23,8 @@ function processLesson(sjtuLesson, callback) {
     var events = [];
     console.log(sjtuLesson.bsid);
     sjtuLesson.classes.forEach(function(entry) {
-        if (entry.schedule.period == 0 ||
-                entry.schedule.week > sjtuSchedule.termLast) {
+        if (entry.schedule.period == 0/* ||
+                entry.schedule.week > sjtuSchedule.termLast*/) {
             return;
         }
         var evt = {
@@ -66,6 +66,10 @@ exports.init = function(sjtu_schedule_file) {
     sjtuSchedule = JSON.parse(fs.readFileSync(sjtu_schedule_file));
     sjtuSchedule.termStart = moment(sjtuSchedule.termStart);
     return this;
+}
+
+exports.updateTermStart = function (termStart) {
+    sjtuSchedule.termStart = moment(termStart);
 }
 
 //exports.init("sjtu_schedule.json");
