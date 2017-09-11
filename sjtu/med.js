@@ -82,6 +82,7 @@ function getAccessToken(oauth2, code, redirectUrl, callback) {
         code: code,
         redirect_uri: redirectUrl
     };
+    console.log(oauth2);
     oauth2.authorizationCode.getToken(tokenConfig, (error, result) => {
         if (error) {
             callback(error.message);

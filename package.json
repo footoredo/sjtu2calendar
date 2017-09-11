@@ -6,7 +6,10 @@
   "dependencies": {
     "async": "^2.1.5",
     "body-parser": "^1.17.0",
+    "connect": "^3.6.0",
+    "cookie-parser": "^1.4.3",
     "express": "^4.15.0",
+    "express-session": "^1.15.1",
     "google-auth-library": "^0.10.0",
     "google-batch": "0.0.7",
     "googleapis": "^17.1.0",
@@ -14,6 +17,7 @@
     "moment": "^2.17.1",
     "moment-timezone": "^0.5.11",
     "requests": "^0.1.7",
+    "session-memory-store": "^0.2.2",
     "simple-oauth2": "^1.1.0",
     "socket.io": "^1.7.3"
   },

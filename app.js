@@ -51,6 +51,7 @@ app.get('/', function (req, res) {
 
 app.post('/process', function (req, res) {
     res.sendFile("templates/process.html", {root: __dirname});
+    processor.updateTermStart (req.body.termStart);
     googleMed.createCalendar(req.session.googleOauth2Client, req.session.googleCalendar, req.body.calendarName, function(err, calendarId) {
         if (err) {
             console.log(err);
@@ -59,7 +60,7 @@ app.post('/process', function (req, res) {
         else {
             io.sockets.emit("news", "Done creating calendar");
             var all = 0, done = 0;
-            if (req.body.isLesson) {
+            if (true) {
                 console.log("importing lessons");
                 sjtuMed.api('GET', '/me/lessons', req.session.sjtuToken, {}, function(err, lessons) {
                     if (err) {
@@ -94,8 +95,6 @@ app.post('/process', function (req, res) {
                         });
                     }
                 });
-            }
-            if (req.body.isExam) {
             }
         }
     });
