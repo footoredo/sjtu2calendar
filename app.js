@@ -29,12 +29,25 @@ app.use(function(req, res, next) {
     res.header('Access-Control-Allow-Headers', 'X-Requested-With, X-HTTP-Method-Override, Content-Type, Accept');
     next();
 });
-
-
-
 app.use(bodyParser.urlencoded({     // to support URL-encoded bodies
     extended: true
 })); 
+sessionSecret = JSON.parse(fs.readFileSync("session_secret.json"));
+app.use(session({
+    secret: sessionSecret.secret,
+    cookie: { maxAge: 60 * 1000 },
+    resave: false,
+    saveUninitialized: true,
+    store: new MemoryStore()
+}));
+app.use(cookieParser());
+app.use(function(req, res, next) {
+    res.header('Access-Control-Allow-Credentials', true);
+    res.header('Access-Control-Allow-Origin', req.headers.origin);
+    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
+    res.header('Access-Control-Allow-Headers', 'X-Requested-With, X-HTTP-Method-Override, Content-Type, Accept');
+    next();
+});
 
 app.get('/test', function (req, res) {
     for (var i = 0; i < 10000; ++ i)
