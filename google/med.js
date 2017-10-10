@@ -2,15 +2,21 @@ var fs = require('fs');
 var async = require('async');
 var readline = require('readline');
 var googleAuth = require('google-auth-library');
-var googleBatch = require('google-batch');
-var google = googleBatch.require('googleapis');
+//var googleBatch = require('google-batch');
+var google = require('googleapis');
+var async = require('async');
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 var SCOPES = ['https://www.googleapis.com/auth/calendar'];
-//google.options({ proxy: "http://localhost:8118" });
+
+function initialize () {
+    process.env.HTTPS_PROXY = 'http://localhost:8123';
+    google.options({ proxy: "http://localhost:8123" });
+    console.log ("Done initialization.");
+}
 
 function getAuthUrl(credentialsFile, callback) {
 	var credentials;
@@ -38,7 +44,9 @@ function getAuthUrl(credentialsFile, callback) {
 }
 
 function getAccessToken(oauth2Client, code, callback) {
+//    console.log ("???" + code)
 	oauth2Client.getToken(code, function (err, tokens) {
+  //      console.log ("!!!" + code)
 		// Now tokens contains an access_token and an optional refresh_token. Save them.
 		if (!err) {
 			oauth2Client.setCredentials(tokens);
@@ -78,59 +86,37 @@ function addEvent(oauth2Client, calendar, calendarId, evts, callback, update) {
     //callback(null);
     //return;
     send(evts);
-    function send(_evts) {
-        var evts;
-        if (_evts.length > 50) {
-            evts = _evts.slice(0, 50);
-        }
-        else {
-            evts = _evts;
-        }
-        //console.log(evts.length);
-        var batch = new googleBatch();
-        batch.setAuth(oauth2Client);
-        async.forEach(evts, function(evt, callback) {
-            batch.add(
-                    calendar.events.insert({
-                        googleBatch: true,
-                        calendarId: calendarId,
-                        resource: evt
-                    }));
-            callback();
-        }, function (err) {
-            if (err) {
-                callback(err);
+    var succCount = 0;
+    function send(evts) {
+        var addOne = async.retryable ({
+            times: 10,
+            interval: function (retryCount) {
+//                console.log ('Retry after ' + 500 * Math.pow (2, retryCount) + ' ms');
+                return 500 * Math.pow (2, retryCount);
             }
-            else {
-                //callback(null);
-                //return;
-                //batch.clear();
-                batch.exec(function (err, res, errDetails) {
-                    if (err) {
-                        //console.log(err);
-                        callback(err.message);
-                    }
-                    else {
-                        //callback(null);
-                        //return;
-                        //console.log(res);
-                        update(evts.length);
-                        //console.log("xxx " + evts.length + " yyy " + _evts.length);
-                        if (_evts.length > 50)
-                            sleep(200).then(() => {
-                                send(_evts.slice(50, _evts.length));
-                            });
-                        else {
-                            callback(null);
-                        }
-                    }
-                    batch.clear();
-                })
-            }
+        }, function (evt, callback) {
+//            console.log ('Add event ' + evt);
+            calendar.events.insert({
+                auth: oauth2Client,
+                calendarId: calendarId,
+                resource: evt
+            }, function (err, response) {
+                if (!err) {
+//                    console.log ('Success!');
+                    update (++ succCount);
+                }
+                else {
+  //                  console.log ('Failed!');
+                }
+                callback (err, response);
+            });
         });
+
+        async.mapLimit (evts, 50, addOne, function (err) {callback (err)});
     }
 }
 
+exports.initialize = initialize;
 exports.getAuthUrl = getAuthUrl;
 exports.getAccessToken = getAccessToken;
 exports.createCalendar = createCalendar;

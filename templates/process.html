@@ -1,16 +1,25 @@
 <html>
     <head>
         <script src="/socket.io/socket.io.js"></script>
-        <script>
-var socket = io.connect();
-socket.on('news', function (data) {
-    var msg = document.createElement('p');
-    msg.textContent = data;
-    document.body.appendChild(msg);
-});
-        </script>
+        <script src="https://unpkg.com/vue"></script>
     </head>
     <body>
-        <p> Start process... </p>
+        <div id="progress">
+            {{ message }}
+        </div>
+        <script>
+
+var progress = new Vue({
+    el: '#progress',
+    data: {
+        message: 'Start process...'
+    }
+});
+
+var socket = io.connect();
+socket.on('news', function (data) {
+    progress.message = data;
+});
+        </script>
     </body>
 </html>

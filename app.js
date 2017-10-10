@@ -1,13 +1,37 @@
 var express = require('express');
 var async = require('async');
+var session = require('express-session');
 var app = express()
     , server = require('http').createServer(app)
     , io = require('socket.io').listen(server);
 var googleMed = require('./google/med.js');
+googleMed.initialize ();
 var googleCalendar, googleOauth2Client, googleToken;
 var sjtuMed = require('./sjtu/med.js'), sjtuToken, sjtuRedirectUrl;
 var processor = require('./core/processor.js').init("sjtu_schedule.json");
 var bodyParser = require('body-parser')
+var cookieParser = require ('cookie-parser')
+var MemoryStore = require('session-memory-store')(session);
+var fs = require('fs');
+sessionSecret = JSON.parse(fs.readFileSync("session_secret.json"));
+app.use(session({
+    secret: sessionSecret.secret,
+    cookie: { maxAge: 60 * 1000 },
+    resave: false,
+    saveUninitialized: true,
+    store: new MemoryStore()
+}));
+app.use(cookieParser());
+app.use(function(req, res, next) {
+    res.header('Access-Control-Allow-Credentials', true);
+    res.header('Access-Control-Allow-Origin', req.headers.origin);
+    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
+    res.header('Access-Control-Allow-Headers', 'X-Requested-With, X-HTTP-Method-Override, Content-Type, Accept');
+    next();
+});
+
+
+
 app.use(bodyParser.urlencoded({     // to support URL-encoded bodies
     extended: true
 })); 
@@ -18,10 +42,10 @@ app.get('/test', function (req, res) {
 });
 
 app.get('/', function (req, res) {
-    if (sjtuToken == null) {
+    if (req.session.sjtuToken == null) {
         res.redirect('/sjtu_auth');
     }
-    else if (googleCalendar == null) {
+    else if (req.session.googleCalendar == null) {
         res.redirect('/google_auth');
     }
     else {
@@ -32,7 +56,7 @@ app.get('/', function (req, res) {
 app.post('/process', function (req, res) {
     res.sendFile("templates/process.html", {root: __dirname});
     processor.updateTermStart (req.body.termStart);
-    googleMed.createCalendar(googleOauth2Client, googleCalendar, req.body.calendarName, function(err, calendarId) {
+    googleMed.createCalendar(req.session.googleOauth2Client, req.session.googleCalendar, req.body.calendarName, function(err, calendarId) {
         if (err) {
             console.log(err);
             io.sockets.emit(err);
@@ -42,7 +66,7 @@ app.post('/process', function (req, res) {
             var all = 0, done = 0;
             if (true) {
                 console.log("importing lessons");
-                sjtuMed.api('GET', '/me/lessons', sjtuToken, {}, function(err, lessons) {
+                sjtuMed.api('GET', '/me/lessons', req.session.sjtuToken, {}, function(err, lessons) {
                     if (err) {
                         res.send(err);
                     }
@@ -61,7 +85,7 @@ app.post('/process', function (req, res) {
                             tryAdd();
                             function tryAdd() {
                                 var all = evts.length;
-                                googleMed.addEvent(googleOauth2Client, googleCalendar, calendarId, evts, function(err) {
+                                googleMed.addEvent(req.session.googleOauth2Client, req.session.googleCalendar, calendarId, evts, function(err) {
                                     if (!err) {
                                         io.sockets.emit("news", "Done!");
                                     }
@@ -69,7 +93,7 @@ app.post('/process', function (req, res) {
                                         //tryAdd();
                                     }
                                 }, function(done) {
-                                    io.sockets.emit("news", "Done " + (cnt += done).toString() + "/" + all.toString());
+                                    io.sockets.emit("news", "Done " + done.toString() + "/" + all.toString());
                                 });
                             }
                         });
@@ -81,12 +105,14 @@ app.post('/process', function (req, res) {
 });
 
 app.get('/sjtu_auth', function (req, res) {
+	var sess = req.session;
 	sjtuMed.getAuthUrl("sjtu_client_secret.json", function(err, oauth2Client, authUrl, redirectUrl) {
 		if (!err) {
             //res.send(authUrl);
-            sjtuOauth2Client = oauth2Client;
-            sjtuRedirectUrl = redirectUrl;
+            sess.sjtuOauth2Client = oauth2Client;
+            sess.sjtuRedirectUrl = redirectUrl;
             res.send("<a href=" + authUrl + "> SJTU Authencation </a>");
+			sess.save ();
 		}
 		else {
 			res.send(err);
@@ -95,10 +121,11 @@ app.get('/sjtu_auth', function (req, res) {
 });
 
 app.get('/sjtu_callback', function (req, res) {
-    sjtuMed.getAccessToken(sjtuOauth2Client, req.query.code, sjtuRedirectUrl, function(err, accessToken) {
+	var sess = req.session;
+    sjtuMed.getAccessToken(req.session.sjtuOauth2Client, req.query.code, req.session.sjtuRedirectUrl, function(err, accessToken) {
         if (!err) {
-            console.log(accessToken);
-            sjtuToken = accessToken;
+            //console.log(accessToken);
+            req.session.sjtuToken = accessToken;
             res.redirect('/');
         }
         else {
@@ -110,7 +137,7 @@ app.get('/sjtu_callback', function (req, res) {
 app.get('/google_auth', function (req, res) {
 	googleMed.getAuthUrl("google_client_secret.json", function(err, oauth2Client, authUrl) {
 		if (!err) {
-			googleOauth2Client = oauth2Client;
+			req.session.googleOauth2Client = oauth2Client;
 			res.send("<a href=" + authUrl + "> Google Authencation </a>");
 		}
 		else {
@@ -120,12 +147,13 @@ app.get('/google_auth', function (req, res) {
 });
 
 app.get('/google_callback', function (req, res) {
-	googleMed.getAccessToken(googleOauth2Client, req.query.code, function(err, calendar) {
+	googleMed.getAccessToken(req.session.googleOauth2Client, req.query.code, function(err, calendar) {
 		if (!err) {
-			googleCalendar = calendar;
+			req.session.googleCalendar = calendar;
             res.redirect('/');
 		}
 		else {
+            console.log ("in callback: " + err);
 			res.send(err);
 		}
 	});
